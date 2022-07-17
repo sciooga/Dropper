@@ -26,3 +26,4 @@ Dropper(投掷器) 基于七牛云对象存储的文件分享工具
 
 * 有效期及提取码只能相对安全的保护文件，重要文件分享后请到七牛删除
 * 使用测试域名请注意[使用规范](https://developer.qiniu.com/fusion/kb/1319/test-domain-access-restriction-rules)
+* 七牛有一定量的[免费额度](https://developer.qiniu.com/af/kb/1574/free-credit-information)
