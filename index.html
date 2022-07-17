@@ -10,12 +10,12 @@
     <script src="//cdn.staticfile.org/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="//cdn.staticfile.org/qiniu-js/3.4.1/qiniu.min.js"></script>
     <style>
-        body {
+    html, body {
         margin: 0;
         width: 100vw;
-        height: 100vh;
+        height: 100%;
         overflow: hidden;
-        display: block;
+        position: relative;
         font-family: "Helvetica Neue", sans-serif;
         user-select: none;
         background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
@@ -66,8 +66,8 @@
         z-index: 1000;
         top: 0;
         width: 300px;
-        right: -260px;
-        height: 100vh;
+        right: -300px;
+        height: 100%;
         background: #fff;
         box-shadow: 0 0 40px 0 #999;
         opacity: 0;
