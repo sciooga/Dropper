@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Has-ZN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="description" content="Dropper">
+    <title>Dropper</title>
+    <link rel="stylesheet" href="https://cdn.staticfile.org/bulma/0.9.4/css/bulma.min.css">
+    <script src="//cdn.staticfile.org/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="//cdn.staticfile.org/qiniu-js/3.4.1/qiniu.min.js"></script>
+    <style>
+        body {
+        margin: 0;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        display: block;
+        font-family: "Helvetica Neue", sans-serif;
+        user-select: none;
+        background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+        background-size: 400% 400%;
+        animation: gradient 12s ease infinite;
+    }
+
+    @keyframes gradient {
+        0% {
+            background-position: 0% 50%;
+        }
+
+        50% {
+            background-position: 100% 50%;
+        }
+
+        100% {
+            background-position: 0% 50%;
+        }
+    }
+    .logo {
+        padding: 20px;
+        color: #fff;
+        font-weight: 200;
+        letter-spacing: 3px;
+    }
+
+    #settingBtn {
+        position: absolute;
+        right: 0;
+        top: 0;
+        padding: 20px;
+        font-size: 1.2em;
+        transition: transform .5s;
+        box-sizing: content-box;
+    }
+
+    .setting-wrap:hover #settingBtn {
+        transform: rotate(60deg);
+    }
+    .setting-wrap:hover #setting {
+        right: 0;
+        opacity: 1;
+    }
+    #setting {
+        padding: 20px;
+        position: absolute;
+        z-index: 1000;
+        top: 0;
+        width: 300px;
+        right: -260px;
+        height: 100vh;
+        background: #fff;
+        box-shadow: 0 0 40px 0 #999;
+        opacity: 0;
+        transition: .5s;
+    }
+
+    .upload-wrap {
+        width: 300px;
+        margin: 0 auto;
+    }
+    .upload-box {
+        margin: 12vh 0 60px; 
+        padding: 10% 10% 20%;
+        border-radius: 0.8rem;
+        border: 2px dashed rgba(255,255,255, .5);
+        background: rgba(255,255,255, .5);
+        position: relative;
+        text-align: center;
+        transition: 0.3s;
+        width: 100%;
+    }
+    .upload-box:hover {
+        background: rgba(255,255,255, .68);
+    }
+    .upload-box input {
+        cursor: pointer;
+    }
+
+    #result {
+        height: 0;
+        transition: .5s;
+        overflow: hidden;
+    }
+    </style>
+</head>
+
+<body>
+    <div class="logo">Dropper</div>
+    <div class="upload-wrap">
+        <div class="upload-box">
+            <input id="fileInput" class="file-input" type="file" onclick="value=null">
+            <p style="font-size: 5em">🗂️</p>
+            <span id='desc'>点击选择 或 拖入文件</span>
+        </div>
+        <div id="shareBox" class="field has-addons">
+            <div class="control is-expanded">
+                <div class="select is-fullwidth">
+                    <select id='expire'>
+                        <option value="86400">有效期一天</option>
+                        <option value="604800">有效期一周</option>
+                        <option value="2592000">有效期一月</option>
+                        <option value="3153600000">有效期永久</option>
+                    </select>
+                </div>
+            </div>
+            <div class="control">
+                <button id="share" class="button is-link is-light">分享</button>
+            </div>
+        </div>
+        <div id="downloadBox" class="field has-addons" style="display: none">
+            <div class="control is-expanded">
+                <input id='secret' class="input" placeholder="输入提取码">
+            </div>
+            <div class="control">
+                <button id="download" class="button is-link is-light">下载</button>
+            </div>
+        </div>
+        <div id="result" class="control is-loading">
+            <textarea id='shareMsg' class="textarea is-link" placeholder="分享生成中..."></textarea>
+            <i class="help">已自动复制到剪切板</i>
+        </div>
+    </div>
+    <div class="setting-wrap">
+        <span id="settingBtn">⚙️</span>
+        <div id="setting">
+            <h4>基础参数</h4>
+            <i class="help">以下参数仅保存在本地</i><br>
+            <input id="ak" class="input is-small" name="AK" placeholder="AccessKey">
+            <input id="sk" class="input is-small" name="SK" placeholder="SecretKey">
+            <i class="help">访问 <a href="https://portal.qiniu.com/user/key" target="_blank">密钥管理</a> 获取</i>
+            <br>
+            <input id="bucket" class="input is-small" name="BUCKET" placeholder="bucket">
+            <i class="help">访问 <a href="https://portal.qiniu.com/kodo/bucket" target="_blank">空间管理</a> 创建或选择</i>
+            <br>
+            <i class="help">请在空间设置处将默认首页开启，并将 <a href="" download="index.html">index.html</a> 文件上传至空间</i>
+            <i class="help">有效期及提取码只能相对安全的保护文件，重要文件分享后请到七牛删除</i>
+            <i class="help">使用测试域名请注意<a href="https://developer.qiniu.com/fusion/kb/1319/test-domain-access-restriction-rules" target="_blank">使用规范</a></i>
+        </div>
+    </div>
+    <script>
+    var AK = ak.value = localStorage.getItem('AK')
+    var SK = sk.value = localStorage.getItem('SK')
+    var BUCKET = bucket.value = localStorage.getItem('BUCKET')
+    var DOMAIN = location.origin
+
+    var utf16to8 = function(str) {
+        var out, i, len, c
+        out = ""
+        len = str.length
+        for (i = 0; i < len; i++) {
+            c = str.charCodeAt(i)
+            if ((c >= 0x0001) && (c <= 0x007F)) {
+                out += str.charAt(i)
+            } else if (c > 0x07FF) {
+                out += String.fromCharCode(0xE0 | ((c >> 12) & 0x0F))
+                out += String.fromCharCode(0x80 | ((c >> 6) & 0x3F))
+                out += String.fromCharCode(0x80 | ((c >> 0) & 0x3F))
+            } else {
+                out += String.fromCharCode(0xC0 | ((c >> 6) & 0x1F))
+                out += String.fromCharCode(0x80 | ((c >> 0) & 0x3F))
+            }
+        }
+        return out
+    }
+
+    // 生成七牛 upload token
+    var genUpToken = function(bucketName, deadline) {
+        var putPolicy = { "scope": bucketName, "deadline": deadline }
+        var encoded = btoa(utf16to8(JSON.stringify(putPolicy)))
+        var signature = CryptoJS.HmacSHA1(encoded, SK)
+        var encoded_signed = signature.toString(CryptoJS.enc.Base64)
+        encoded_signed = encoded_signed.replace(/\+/g, "-") // url 安全的 base64
+        encoded_signed = encoded_signed.replace(/\//g, "_")
+        var upload_token = AK + ":" + encoded_signed + ":" + encoded
+        return upload_token
+    }
+
+    var FILE_NAME, SECRET // 生成分享链接时会用到，通过全局变量传递
+    var dropHandler = function(e) {
+        if (!AK || !SK || !BUCKET) return alert('请先在右上角配置基础参数')
+
+        var fileList = e.dataTransfer ? e.dataTransfer.files : e.target.files
+        if (!fileList.length) return
+        if (fileList.length != 1) return alert('只支持上传单个文件')
+
+        FILE_NAME = fileList[0].name
+        SECRET = Math.random().toString(36).slice(-8) // 生成随机密码
+        var upToken = genUpToken(BUCKET, 16666666666) // 写死一个超大的日期
+
+        var observable = qiniu.upload(fileList[0], `${FILE_NAME}@${SECRET}`, upToken)
+        var subscription = observable.subscribe({
+            next: function(e) {
+                desc.innerText = e.total.percent.toFixed(2) + '%'
+            },
+            error: function(e) {
+                alert(e.message)
+                location.reload()
+            },
+            complete: function(e) {
+                desc.innerText = FILE_NAME
+            }
+        })
+    }
+
+    var hash160724 = function(str, salt) {
+        for (var i = 0; i < 160724; i++) {
+            str = CryptoJS.MD5(str + salt).toString()
+        }
+        return str
+    }
+
+
+    setting.addEventListener('change', function(e) {
+        localStorage.setItem(e.target.name, e.target.value)
+        window[e.target.name] = e.target.value;
+    })
+
+    window.onload = function() {
+        var searchParams = new URL(location.href).searchParams
+        var secretMD5 = searchParams.get('s')
+        var dt = searchParams.get('dt')
+        var fileName = searchParams.get('n')
+        if (fileName) {
+            // 下载模式
+            desc.innerText = fileName
+            shareBox.style.display = 'none'
+            fileInput.style.display = 'none'
+            downloadBox.style.display = 'flex'
+
+            download.addEventListener('click', function() {
+                if (dt < new Date) return alert('文件分享到期，无法下载')
+                if (hash160724(secret.value, `${fileName}@${dt}`) != secretMD5) return alert('提取码错误')
+
+                downloadURL = `${DOMAIN}/${fileName}@${secret.value}?attname=${fileName}`
+                window.open(downloadURL)
+            })
+        } else {
+            // 上传模式
+            document.addEventListener("dragover", function(e) {
+                e.preventDefault()
+            })
+
+            document.addEventListener("drop", function(e) {
+                e.preventDefault()
+                dropHandler(e)
+            })
+            fileInput.addEventListener('change', dropHandler)
+
+            share.addEventListener('click', function() {
+                if (!FILE_NAME) return alert('请上传文件')
+                result.style.height = '200px'
+                setTimeout(function() {
+                    var dt = +new Date + expire.value * 1000
+                    var secretMD5 = hash160724(SECRET, `${FILE_NAME}@${dt}`)
+                    var resultURL = `${DOMAIN}?s=${secretMD5}&n=${encodeURI(FILE_NAME)}&dt=${dt}`
+
+                    shareMsg.value = `链接: ${resultURL} 提取码: ${SECRET}`
+                    result.classList.remove('is-loading')
+                    shareMsg.select();
+                    document.execCommand('copy', true);
+                }, 500)
+            })
+        }
+    }
+    </script>
+</body>
+
+</html>
